@@ -17,7 +17,12 @@ Start by cloning the repo using the following command in your terminal:
 ```
 git clone git@github.com:eirillsh/MEK9250.git
 ```
-Make sure you have set up [ssh](https://docs.github.com/en/authentication/connecting-to-github-with-ssh). Remote should be automatically set.
+Make sure you have set up [ssh](https://docs.github.com/en/authentication/connecting-to-github-with-ssh). Remote should be automatically set. 
+
+Move into the folder:
+```
+cd MEK9250
+```
 
 Create (`-c`) and switch to your personal branch:
 ```
