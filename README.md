@@ -26,7 +26,7 @@ cd MEK9250
 
 Create (`-c`) and switch to your personal branch:
 ```
-git -c swtich <branch>
+git swtich -c <branch>
 ```
 where `<branch>` should be the name of your branch.
 
