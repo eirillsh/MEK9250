@@ -40,13 +40,21 @@ Using `-u` will set up-stream to this GitHub repo, specifically to your branch.
 After this initial push,  use `git push` to push local changes to GitHub
 and `git pull` to pull changes on GitHub to your local repo.
 
+### Updates from main
+
+Should you need updates from the main branch:
+```
+git pull origin main
+```
+This will probably open some text editor asking to create a merge message. This may be ignored, just close the editor and the default message will be used. The files in the main branch should not be necessary to change, so there should be no conflicts. 
+
 
 ## Resources
 
 Links for 2023:
-- [Course web site](https://www.uio.no/studier/emner/matnat/math/MEK4250/v23/index.htm): course schedule.
+- [Course web site](https://www.uio.no/studier/emner/matnat/math/MEK4250/v23): course schedule.
 - [Info](https://kent-and.github.io/mek4250/2023/index.html): Kent's info page.
-- [Book](https://kent-and.github.io/mek4250/2023/book_jan23.pdf): Kent's lecture notes (might be updated during the course).
+- [Book](https://kent-and.github.io/mek4250/2023/book_jan23.pdf): Kent's lecture notes.
 - [FAFEM](https://www.simula.no/education/courses/faefem-functional-analysis-essentials-finite-element-method): Simula crash course in functional analysis.
 
 
