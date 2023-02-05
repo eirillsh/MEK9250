@@ -52,9 +52,9 @@ This will probably open some text editor asking to create a merge message. This 
 ## Resources
 
 Links for 2023:
-- [Course web site](https://www.uio.no/studier/emner/matnat/math/MEK4250/v23/index.htm): course schedule.
+- [Course web site](https://www.uio.no/studier/emner/matnat/math/MEK4250/v23): course schedule.
 - [Info](https://kent-and.github.io/mek4250/2023/index.html): Kent's info page.
-- [Book](https://kent-and.github.io/mek4250/2023/book_jan23.pdf): Kent's lecture notes (might be updated during the course).
+- [Book](https://kent-and.github.io/mek4250/2023/book_jan23.pdf): Kent's lecture notes.
 - [FAFEM](https://www.simula.no/education/courses/faefem-functional-analysis-essentials-finite-element-method): Simula crash course in functional analysis.
 
 
