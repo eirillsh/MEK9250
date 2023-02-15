@@ -92,4 +92,21 @@ source activate fenics
 
 ### FEniCSx
 
-...
+The documentation for FEniCSx can be found here: https://docs.fenicsproject.org/.
+
+The file `fenicsx-env.yml` contains a minimal conda environment for `fenicsx`.
+
+Create a FEniCSx conda environment by running the following command line in your terminal:
+```
+conda env create -f fenicsx-env.yml
+```
+To activate the new environment use:
+```
+conda activate fenicsx-env
+```
+or, if your conda is very old:
+```
+source activate fenicsx-env
+```
+
+In case of issues, see the `conda` subsection of the Installation section of the dolfinx Github page (https://github.com/FEniCS/dolfinx).
