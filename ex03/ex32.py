@@ -121,7 +121,8 @@ plt.plot(xx_long, uu_ex_long, 'k:', label="$u_e$")
 plt.legend()
 
 mus = [1e-3, 1e-4, 1e-5, 1e-6]
-Ns = [21, 41, 81, 161, 321, 641, 1281, 2561, 5121]
+Ns = [21, 41, 81, 161, 321, 641, 1281, 2561, 5121, 10480, 20562]
+Ns = [10 * 2**k for k in range(1, 15)]
 
 data = np.zeros((len(mus), len(Ns), 2))
 
@@ -137,11 +138,13 @@ hs = 1 / (np.array(Ns) - 1)
 fig, axs = plt.subplots(1,2)
 
 for i, mu in enumerate(mus):
-    axs[0].loglog(hs, data[i,:,0], label=f"${mu=}, H^1$")
+    axs[0].loglog(hs, data[i,:,0] / H2norm(mu), label=f"${mu=}, H^1$")
     axs[1].loglog(hs, data[i,:,1] / H2norm(mu), label=f"${mu=}, L^2$")
 
 axs[0].legend()
 axs[1].legend()
+
+# axs[0].set_xlim()
 
 
 print()

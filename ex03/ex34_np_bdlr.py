@@ -69,18 +69,18 @@ def dphi_builder(mesh: np.ndarray, k):
 N = 5
 mesh = np.linspace(0, 1, N)
 
-xx = np.linspace(0, 1, 201)
-plt.figure()
+# xx = np.linspace(0, 1, 201)
+# plt.figure()
 
-for k in range(N):
-    phi = phi_builder(mesh, k)
-    plt.plot(xx, phi(xx))
+# for k in range(N):
+#     phi = phi_builder(mesh, k)
+#     plt.plot(xx, phi(xx))
 
-plt.figure()
+# plt.figure()
 
-for k in range(N):
-    dphi = dphi_builder(mesh, k)
-    plt.plot(xx, dphi(xx))
+# for k in range(N):
+#     dphi = dphi_builder(mesh, k)
+#     plt.plot(xx, dphi(xx))
 
 
 def quad(u, start=0, stop=1, tol=1e-13):
@@ -114,15 +114,16 @@ def a(u, v, du, dv, mu, start=0.0, stop=1.0):
     return mu * quad2(du, dv, start=start, stop=stop) - quad2(du, v, start=start, stop=stop)
 
 def l(v, mu, start=0.0, stop=1.0):
-    f = lambda x: mu*np.pi**2*np.sin(np.pi*x) - np.pi*np.cos(np.pi*x)
+    #f = lambda x: mu*np.pi**2*np.sin(np.pi*x) - np.pi*np.cos(np.pi*x)
+    f = lambda x: 0*x
     return quad2(f, v, start=start, stop=stop)
 
 # L_builder = N_builder
-N = 11
+N = 101
 mesh = np.linspace(0, 1, N)
-mu = 0.00000001
+mu = 0.001
 bc0 = 0.0
-bc1 = 0.0
+bc1 = 1.0
 
 A = np.zeros((N, N))
 b = np.zeros((N,))
@@ -165,11 +166,12 @@ b[-1] = bc1
 
 u = np.linalg.solve(A, b)
 
+print(A)
 
 plt.figure()
 
 plt.plot(mesh, u, 'k-', label="$u_h$")
-plt.plot(mesh, np.sin(np.pi*mesh), label="$u_e$")
+# plt.plot(mesh, np.sin(np.pi*mesh), label="$u_e$")
 plt.legend()
 
 plt.show()
