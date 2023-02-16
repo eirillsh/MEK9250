@@ -98,20 +98,25 @@ def run_problem(N, mu_val, SUPG=True):
 
     return uh
 
-mu = 0.00005
-N = 201
+mu = 0.001
+N = 21
 
-uh = run_problem(N, mu, SUPG=True)
-xx = np.copy(uh.function_space.mesh.geometry.x[:,0])
-uu = np.copy(uh.vector.array)
+uh_supg = run_problem(N, mu, SUPG=True)
+xx_supg = np.copy(uh_supg.function_space.mesh.geometry.x[:,0])
+uu_supg = np.copy(uh_supg.vector.array)
+
+uh_cg = run_problem(N, mu, SUPG=False)
+xx_cg = np.copy(uh_cg.function_space.mesh.geometry.x[:,0])
+uu_cg = np.copy(uh_cg.vector.array)
 
 xx_long = np.linspace(0, 1, 1001)
 uu_ex_long = u_func(xx_long, mu)
 
 plt.figure()
 
-plt.plot(xx, uu, 'k-', label="$u_h$")
-plt.plot(xx_long, uu_ex_long, 'k:', label="$u_e$")
+plt.plot(xx_supg, uu_supg, 'k-', label=r"$u_\mathrm{supg}$")
+plt.plot(xx_cg, uu_cg, 'k--', label=r"$u_\mathrm{cg}$")
+plt.plot(xx_long, uu_ex_long, 'k:', label=r"$u_\mathrm{ex}$")
 
 plt.legend()
 
