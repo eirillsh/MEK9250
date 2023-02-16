@@ -52,9 +52,9 @@ This will probably open some text editor asking to create a merge message. This 
 ## Resources
 
 Links for 2023:
-- [Course web site](https://www.uio.no/studier/emner/matnat/math/MEK4250/v23/index.htm): course schedule.
+- [Course web site](https://www.uio.no/studier/emner/matnat/math/MEK4250/v23): course schedule.
 - [Info](https://kent-and.github.io/mek4250/2023/index.html): Kent's info page.
-- [Book](https://kent-and.github.io/mek4250/2023/book_jan23.pdf): Kent's lecture notes (might be updated during the course).
+- [Book](https://kent-and.github.io/mek4250/2023/book_jan23.pdf): Kent's lecture notes.
 - [FAFEM](https://www.simula.no/education/courses/faefem-functional-analysis-essentials-finite-element-method): Simula crash course in functional analysis.
 
 
@@ -92,4 +92,21 @@ source activate fenics
 
 ### FEniCSx
 
-...
+The documentation for FEniCSx can be found here: https://docs.fenicsproject.org/.
+
+The file `fenicsx-env.yml` contains a minimal conda environment for `fenicsx`.
+
+Create a FEniCSx conda environment by running the following command line in your terminal:
+```
+conda env create -f fenicsx-env.yml
+```
+To activate the new environment use:
+```
+conda activate fenicsx-env
+```
+or, if your conda is very old:
+```
+source activate fenicsx-env
+```
+
+In case of issues, see the `conda` subsection of the Installation section of the dolfinx Github page (https://github.com/FEniCS/dolfinx).
