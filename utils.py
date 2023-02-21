@@ -44,3 +44,8 @@ def H1_norm(u):
     I = df.assemble(f*df.dx)
     return df.sqrt(I)
 
+def H1_seminorm(u):
+    f = df.inner(df.grad(u), df.grad(u))
+    I = df.assemble(f*df.dx)
+    return df.sqrt(I)
+
