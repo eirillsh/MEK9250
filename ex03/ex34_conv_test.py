@@ -9,7 +9,6 @@ from dolfinx import fem
 from petsc4py.PETSc import ScalarType
 import ufl
 
-from h2norm import u as u_func
 
 def compute_H10_norm(uh):
 
@@ -98,27 +97,28 @@ def run_problem(N, mu_val, SUPG=True):
                                         marker=lambda x: np.isclose(x[0], 0.0))
     rightfacets = mesh.locate_entities_boundary(domain, dim=0,
                                         marker=lambda x: np.isclose(x[0], 1.0))
+    
 
     left_bc_dofs = fem.locate_dofs_topological(V=V, entity_dim=0, 
                                                entities=leftfacets)
     right_bc_dofs = fem.locate_dofs_topological(V=V, entity_dim=0, 
                                                 entities=rightfacets)
 
-    left_bc = fem.dirichletbc(ScalarType(0), left_bc_dofs, V)
-    right_bc = fem.dirichletbc(ScalarType(1), right_bc_dofs, V)
+    left_bc = fem.dirichletbc(ScalarType(0.0), left_bc_dofs, V)
+    right_bc = fem.dirichletbc(ScalarType(0.0), right_bc_dofs, V)
 
 
     u = ufl.TrialFunction(V)
     v = ufl.TestFunction(V)
-
-    f = fem.Constant(domain, ScalarType(0))
-
-    u = ufl.TrialFunction(V)
-    v = ufl.TestFunction(V)
+    x = ufl.SpatialCoordinate(domain)
 
 
     mu = fem.Constant(domain, ScalarType(mu_val))
     w = fem.Constant(domain, ScalarType((-1,)))
+
+    u_ex = ufl.sin(ufl.pi * x[0])
+    f = ufl.pi**2 * mu * ufl.sin(ufl.pi * x[0]) - ufl.pi * ufl.cos(ufl.pi * x[0])
+
 
     if SUPG:       
         beta = 0.5
@@ -135,21 +135,36 @@ def run_problem(N, mu_val, SUPG=True):
                         petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
     uh = problem.solve()
 
-    return uh
+    h = 1.0 / N
 
-mu = 0.001
-N = 21
+    gu = ufl.grad(uh - u_ex)
+    w_d_gu = ufl.dot(w, ufl.nabla_grad(gu))
+    sd_sqr_form = fem.form( h * ufl.dot(w_d_gu,w_d_gu) * ufl.dx + mu * ufl.dot(gu,gu) * ufl.dx )
+    sd_local = fem.assemble_scalar(sd_sqr_form)
+    sd = np.sqrt(uh.function_space.mesh.comm.allreduce(sd_local, op=MPI.SUM))
 
-uh_supg = run_problem(N, mu, SUPG=True)
+    h10_sqr_form = fem.form( ufl.dot(gu, gu) * ufl.dx )
+    h10_local = fem.assemble_scalar(h10_sqr_form)
+    h10 = np.sqrt(uh.function_space.mesh.comm.allreduce(h10_local, op=MPI.SUM))
+
+    return uh, h10, sd
+
+mu = 0.0000001
+N = 10
+
+def u_func(x):
+    return np.sin(np.pi*x[0])
+
+uh_supg, h10, sd = run_problem(N, mu, SUPG=True)
 xx_supg = np.copy(uh_supg.function_space.mesh.geometry.x[:,0])
 uu_supg = np.copy(uh_supg.vector.array)
 
-uh_cg = run_problem(N, mu, SUPG=False)
+uh_cg, h10, sd = run_problem(N, mu, SUPG=False)
 xx_cg = np.copy(uh_cg.function_space.mesh.geometry.x[:,0])
 uu_cg = np.copy(uh_cg.vector.array)
 
 xx_long = np.linspace(0, 1, 1001)
-uu_ex_long = u_func(xx_long, mu)
+uu_ex_long = u_func(xx_long[None,:])
 
 plt.figure()
 
@@ -158,5 +173,43 @@ plt.plot(xx_cg, uu_cg, 'k--', label=r"$u_\mathrm{cg}$")
 plt.plot(xx_long, uu_ex_long, 'k:', label=r"$u_\mathrm{ex}$")
 
 plt.legend()
+
+
+
+mus = [1e-3, 1e-4, 1e-5]
+Ns = [10 * 2**k for k in range(1, 10)]
+
+data = np.zeros((len(mus), len(Ns), 2))
+for i, mu in enumerate(mus):
+    for j, N in enumerate(Ns):
+        uh, h10, sd = run_problem(N, mu, SUPG=True)
+        data[i,j,:] = [h10+0.0, sd+0.0]
+
+hs = 1 / (np.array(Ns))
+fig, axs = plt.subplots(1,2)
+for i, mu in enumerate(mus):
+    axs[0].loglog(hs, data[i,:,0], label=f"${mu=}, H^1_0$")
+    axs[1].loglog(hs, data[i,:,1], label=f"${mu=}, "+r"\mathrm{sd}$")
+
+axs[0].legend()
+axs[1].legend()
+fig.suptitle("w/ SUPG")
+
+data = np.zeros((len(mus), len(Ns), 2))
+for i, mu in enumerate(mus):
+    for j, N in enumerate(Ns):
+        uh, h10, sd = run_problem(N, mu, SUPG=False)
+        data[i,j,:] = [h10+0.0, sd+0.0]
+
+hs = 1 / (np.array(Ns))
+fig, axs = plt.subplots(1,2)
+for i, mu in enumerate(mus):
+    axs[0].loglog(hs, data[i,:,0], label=f"${mu=}, H^1_0$")
+    axs[1].loglog(hs, data[i,:,1], label=f"${mu=}, "+r"\mathrm{sd}$")
+
+axs[0].legend()
+axs[1].legend()
+fig.suptitle("w/o SUPG")
+
 
 plt.show()
