@@ -11,20 +11,21 @@ from petsc4py.PETSc import ScalarType
 import ufl
 
 from solutions import poiseuille
+from elements import get_elements
 
 
-def run_problem(N):
+def run_problem(N, V_element, Q_element):
 
     domain = mesh.create_unit_square(MPI.COMM_SELF, N, N)
     tdim = domain.topology.dim
     fdim = tdim - 1
 
-    V_cg2 = ufl.VectorElement("CG", domain.ufl_cell(), 2)
-    Q_cg1 = ufl.FiniteElement("CG", domain.ufl_cell(), 1)
-    V = fem.FunctionSpace(domain, V_cg2)
-    Q = fem.FunctionSpace(domain, Q_cg1)
+    # V_cg2 = ufl.VectorElement("CG", domain.ufl_cell(), 2)
+    # Q_cg1 = ufl.FiniteElement("CG", domain.ufl_cell(), 1)
+    V = fem.FunctionSpace(domain, V_element)
+    Q = fem.FunctionSpace(domain, Q_element)
 
-    mel = ufl.MixedElement([V_cg2, Q_cg1])
+    mel = ufl.MixedElement([V_element, Q_element])
     W = fem.FunctionSpace(domain, mel)
 
 
@@ -87,8 +88,10 @@ def run_problem(N):
     return uh, ph, domain
 
 N = 60
+element = "Mini"
+V_el, Q_el = get_elements(element)
 
-uh, ph, domain = run_problem(N)
+uh, ph, domain = run_problem(N, V_el, Q_el)
 
 
 
@@ -106,7 +109,7 @@ php.vector[:] = php.vector[:]*-1 # Reset flipped sign of pressure
 php.name = "p_h"
 
 from dolfinx import io
-with io.XDMFFile(domain.comm, "output/stokes_test_output.xdmf", "w") as xdmf:
+with io.XDMFFile(domain.comm, "output/ex44_output.xdmf", "w") as xdmf:
     xdmf.write_mesh(domain)
     xdmf.write_function(uhp)
     xdmf.write_function(php)
@@ -115,25 +118,22 @@ with io.XDMFFile(domain.comm, "output/stokes_test_output.xdmf", "w") as xdmf:
 xx = domain.geometry.x
 pp = php.vector.array
 uh1 = uhp.vector.array[::2]
-uh2 = uhp.vector.array[1::2]
+
 
 ax = plt.figure().add_subplot(projection='3d')
 
 ax.plot_trisurf(xx[:,0], xx[:,1], pp, cmap=plt.cm.viridis)
 ax.set_xlabel("$x$")
 ax.set_ylabel("$y$")
+ax.set_title("$p$")
 
 ax = plt.figure().add_subplot(projection='3d')
 
 ax.plot_trisurf(xx[:,0], xx[:,1], uh1, cmap=plt.cm.viridis)
 ax.set_xlabel("$x$")
 ax.set_ylabel("$y$")
+ax.set_title("$u_1$")
 
-ax = plt.figure().add_subplot(projection='3d')
-
-ax.plot_trisurf(xx[:,0], xx[:,1], uh2, cmap=plt.cm.viridis)
-ax.set_xlabel("$x$")
-ax.set_ylabel("$y$")
 
 plt.show()
 
