@@ -235,7 +235,7 @@ for mu_value in [1, 0.3, 0.1]:
 
         #####---------ERROR ANALYSIS--------#####
         L2_error_norm = calc_L2_error_norm(u_h, mu_value)
-        H1_error_norm, H1_semi_norm = calc_H1_error_norm(u_h, mu_value)
+        H1_error_norm = calc_H1_error_norm(u_h, mu_value)
 
         print(f"Error analysis with mu = {mu_value}, N = {N}\n")
         print(f"L2 error norm: {L2_error_norm:.2e}")
@@ -244,23 +244,30 @@ for mu_value in [1, 0.3, 0.1]:
         L2_error_norms.append(L2_error_norm)
         H1_error_norms.append(H1_error_norm)
 
+    # Error estimates
+    C_alpha = np.array(H1_error_norms)/np.array(hs)
+    C_beta = np.array(L2_error_norms)/np.array(hs)**2
+
+    print(f"C_alpha: {C_alpha}")
+    print(f"C_beta: {C_beta}")
+
     # Append error norms to lists of error norms for all mu values
     all_L2_error_norms.append(L2_error_norms)
     all_H1_error_norms.append(H1_error_norms)
     print("--------------------------")
-    # Plot errors
-    plt.figure(fig_idx)
-    plt.loglog(hs, L2_error_norms)
-    plt.title(rf"L2 Error Norm Convergence for $\mu$ = {mu_value}")
-    plt.xlabel(r"$h$")
+    # # Plot errors
+    # plt.figure(fig_idx)
+    # plt.loglog(hs, L2_error_norms)
+    # plt.title(rf"L2 Error Norm Convergence for $\mu$ = {mu_value}")
+    # plt.xlabel(r"$h$")
 
-    plt.figure(fig_idx + 1)
-    plt.loglog(hs, H1_error_norms)
-    plt.title(rf"H1 Error Norm Convergence for $\mu$ = {mu_value}")
-    plt.xlabel(r"$h$")
-    fig_idx += 2
+    # plt.figure(fig_idx + 1)
+    # plt.loglog(hs, H1_error_norms)
+    # plt.title(rf"H1 Error Norm Convergence for $\mu$ = {mu_value}")
+    # plt.xlabel(r"$h$")
+    # fig_idx += 2
 
-    plt.show()
+    # plt.show()
 
     # Clear error norm lists
     L2_error_norms, H1_error_norms = [], []

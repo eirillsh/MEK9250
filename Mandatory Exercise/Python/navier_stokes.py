@@ -1,6 +1,4 @@
 import ufl
-import gmsh
-import tqdm
 
 import numpy   as np
 import pyvista as pv
