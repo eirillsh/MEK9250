@@ -1,6 +1,7 @@
 import ufl
 
 import numpy   as np
+import scipy   as sp
 import pyvista as pv
 import dolfinx as dfx
 import matplotlib.pyplot as plt
@@ -180,14 +181,14 @@ for mu_value in [1, 0.3, 0.1]:
         #####---------DEFINE AND SOLVE PROBLEM---------#####
         if SUPG:
             # Streamline Upwinding Petrov-Galerkin method
-            beta = 0.01
+            supg_parameter = 0.5
             # Bilinear form
             a = dfx.fem.form((mu * inner(grad(u), grad(v)) + inner(w, grad(u)) * v 
-                           + beta * h * inner(w, grad(u)) * inner(w, grad(v))) * dx)
+                           + supg_parameter * h * inner(w, grad(u)) * inner(w, grad(v))) * dx)
                            #- beta * h * mu * div(grad(u)) * inner(w, grad(v))) * dx)
 
             # Linear form
-            L = dfx.fem.form((inner(f, v) + beta * h *  inner(f * w, grad(v))) * dx)
+            L = dfx.fem.form((inner(f, v) + supg_parameter * h *  inner(f * w, grad(v))) * dx)
 
         else:
             # Standard Galerkin
@@ -245,29 +246,36 @@ for mu_value in [1, 0.3, 0.1]:
         H1_error_norms.append(H1_error_norm)
 
     # Error estimates
-    C_alpha = np.array(H1_error_norms)/np.array(hs)
-    C_beta = np.array(L2_error_norms)/np.array(hs)**2
+    alpha, intercept_alpha, rho_alpha, pval_alpha, stderr_alpha = sp.stats.linregress(np.log(hs), np.log(H1_error_norms))
+    beta , intercept_beta , rho_beta , pval_beta , stderr_beta  = sp.stats.linregress(np.log(hs), np.log(L2_error_norms))
 
-    print(f"C_alpha: {C_alpha}")
-    print(f"C_beta: {C_beta}")
+    C_alpha = np.exp(intercept_alpha)
+    C_beta  = np.exp(intercept_beta)
+
+    print(f"alpha = {alpha:.5f}, C_alpha = {C_alpha:.5f}")
+    print(f"alpha metrics:\n Correlation coefficient = {rho_alpha:.3f}, p_value = {pval_alpha:.3f}, standard error of slope: {stderr_alpha:.3f}\n")
+    print(f"beta = {beta:.5f}, C_beta = {C_beta:.5f}")
+    print(f"beta metrics:\n Correlation coefficient = {rho_beta:.3f}, p_value = {pval_beta:.3f}, standard error of slope: {stderr_beta:.3f}\n")
 
     # Append error norms to lists of error norms for all mu values
     all_L2_error_norms.append(L2_error_norms)
     all_H1_error_norms.append(H1_error_norms)
     print("--------------------------")
-    # # Plot errors
-    # plt.figure(fig_idx)
-    # plt.loglog(hs, L2_error_norms)
-    # plt.title(rf"L2 Error Norm Convergence for $\mu$ = {mu_value}")
-    # plt.xlabel(r"$h$")
+    # Plot errors
+    plt.figure(fig_idx)
+    plt.plot(np.log(hs), np.log(L2_error_norms))
+    plt.plot(np.log(hs), intercept_beta + beta * np.log(hs), '^')
+    plt.title(rf"L2 Error Norm Convergence for $\mu$ = {mu_value}")
+    plt.xlabel(r"$h$")
 
-    # plt.figure(fig_idx + 1)
-    # plt.loglog(hs, H1_error_norms)
-    # plt.title(rf"H1 Error Norm Convergence for $\mu$ = {mu_value}")
-    # plt.xlabel(r"$h$")
-    # fig_idx += 2
+    plt.figure(fig_idx + 1)
+    plt.plot(np.log(hs), np.log(H1_error_norms))
+    plt.plot(np.log(hs), intercept_alpha + alpha * np.log(hs), '^')
+    plt.title(rf"H1 Error Norm Convergence for $\mu$ = {mu_value}")
+    plt.xlabel(r"$h$")
+    fig_idx += 2
 
-    # plt.show()
+    plt.show()
 
     # Clear error norm lists
     L2_error_norms, H1_error_norms = [], []

@@ -2,5 +2,4 @@
 __pycache__/
 .DS_Store
 *.pyc
-pressure_2D-3.bp/
-velocity_2D-3.bp/
+*.bp/

@@ -1,6 +1,7 @@
 import ufl
 
 import numpy   as np
+import pandas  as pd
 import pyvista as pv
 import dolfinx as dfx
 import matplotlib.pyplot as plt
@@ -11,7 +12,15 @@ from petsc4py   import PETSc
 from dolfinx.io import gmshio
 
 INLET, OUTLET, WALL, CYLINDER = 2, 3, 4, 5 # Facet marker values
-H = 0.41
+H = 0.41  # Height of domain [m]
+U_m = 1.5 # Mean velocity [m]
+sinusoidal = False
+if sinusoidal:
+    case_str = "case_2D-3_"
+else:
+    case_str = "case_2D-2_"
+C_L_max_found = False
+
 class InletVelocity():
     """ Class that defines the function expression for the inlet velocity boundary condition.
     """
@@ -20,7 +29,10 @@ class InletVelocity():
 
     def __call__(self, x):
         velocity = np.zeros((gmsh_dim, x.shape[1]), dtype = PETSc.ScalarType)
-        velocity[0] = 4 * 1.5 * np.sin(self.t * np.pi / 8) * x[1] * (H - x[1]) / (H**2)
+        if sinusoidal:
+            velocity[0] = 4 * U_m * np.sin(self.t * np.pi / 8) * x[1] * (H - x[1]) / (H**2)
+        else:
+            velocity[0] = 4 * U_m * x[1] * (H - x[1]) / (H**2)
         return velocity
 
 # Load mesh
@@ -33,8 +45,8 @@ facet_tags.name = "Facet markers"
 
 # Physical and numerical parameters
 t = 0 # Initial time
-T = 8 # Final time
-dt = 1/2000 # Timestep size
+T = 10 # Final time
+dt = 1/1000 # Timestep size
 num_timesteps = int(T/dt) # Number of timesteps
 
 k   = dfx.fem.Constant(mesh, PETSc.ScalarType(dt))
@@ -144,12 +156,13 @@ pc3 = solver3.getPC()
 pc3.setType(PETSc.PC.Type.SOR)
 
 
-#####-----DRAG AND LIFT COMPUTATION-----#####
+#####-----DRAG, LIFT and PRESSURE DIFFERENCE COMPUTATION-----#####
 n  = -ufl.FacetNormal(mesh) # Normal vector pointing out of mesh
 dS = ufl.Measure("ds", domain = mesh, subdomain_data = facet_tags, subdomain_id = CYLINDER) # Cylinder surface integral measure
 u_t = inner(ufl.as_vector((n[1], -n[0])), u_) # Tangential velocity
-drag = dfx.fem.form( 2 / 0.1 * (mu / rho * inner(grad(u_t), n) * n[1] - p_ * n[0]) * dS)
-lift = dfx.fem.form(-2 / 0.1 * (mu / rho * inner(grad(u_t), n) * n[0] + p_ * n[1]) * dS)
+drag = dfx.fem.form( 2 / (0.1) * (mu / rho * inner(grad(u_t), n) * n[1] - p_ * n[0]) * dS)
+lift = dfx.fem.form(-2 / (0.1) * (mu / rho * inner(grad(u_t), n) * n[0] + p_ * n[1]) * dS)
+
 if mesh.comm.rank == 0:
     # Pre-allocate arrays for drag and lift coefficients
     C_D = np.zeros(num_timesteps, dtype = PETSc.ScalarType)
@@ -165,12 +178,14 @@ colliding_cells = dfx.geometry.compute_colliding_cells(mesh, cell_candidates, po
 front_cells = colliding_cells.links(0)
 back_cells  = colliding_cells.links(1)
 if mesh.comm.rank == 0:
-    p_diff = np.zeros(num_timesteps, dtype = PETSc.ScalarType)
+    delta_P = np.zeros(num_timesteps, dtype = PETSc.ScalarType)
 
 
 # Prepare output files
-vtx_u = dfx.io.VTXWriter(mesh.comm, "velocity_2D-3.bp", [u_])
-vtx_p = dfx.io.VTXWriter(mesh.comm, "pressure_2D-3.bp", [p_])
+u_filename = case_str + "velocity.bp"
+p_filename = case_str + "pressure.bp"
+vtx_u = dfx.io.VTXWriter(mesh.comm, u_filename, [u_])
+vtx_p = dfx.io.VTXWriter(mesh.comm, p_filename, [p_])
 
 # Write initial condition to files
 vtx_u.write(t)
@@ -257,14 +272,21 @@ for i in range(num_timesteps):
         C_D[i] = sum(drag_coeff)
         C_L[i] = sum(lift_coeff)
 
+        if i > 50 and not C_L_max_found:
+            if C_L[i] < C_L[i-1]:
+                C_L_max_found = True
+                t_0 = t - dt
+                i_t_0 = i-1
+                C_L_max = C_L[i_t_0]
+
         # Choose the pressure that is found first from the different processors
         for pressure in p_front:
             if pressure is not None:
-                p_diff[i] = pressure[0]
+                delta_P[i] = pressure[0]
                 break
         for pressure in p_back:
             if pressure is not None:
-                p_diff[i] -= pressure[0]
+                delta_P[i] -= pressure[0]
                 break
 
 # Close output files
@@ -274,12 +296,23 @@ vtx_p.close()
 
 # Print physical quantities
 if mesh.comm.rank == 0:
-    #from IPython import embed;embed()
-    print(f"Maximum drag coefficient: {np.max(C_D)}")
-    print(f"Maximum lift coefficient: {np.max(C_L)}")
-    print(f"Pressure difference: {np.max(p_diff)}")
+    print(f"t_0 = {t_0} at timestep i = {i_t_0}")
+    print(f"Maximum drag coefficient: {np.max(C_D[i_t_0:])}")
+    print(f"Maximum lift coefficient: {np.max(C_L[i_t_0:])}")
+    print(f"Maximum Pressure difference: {np.max(delta_P[i_t_0:])}")
     num_velocity_dofs = V.dofmap.index_map_bs * V.dofmap.index_map.size_global
     num_pressure_dofs = Q.dofmap.index_map_bs * V.dofmap.index_map.size_global
+    print(f"Pressure difference at t = {T}: {delta_P[-1]}")
 
     print(f"# of velocity DOFS: {num_velocity_dofs}")
     print(f"# of pressure DOFS: {num_pressure_dofs}")
+
+# Store the data in a pandas.DataFrame
+if mesh.comm.rank == 0:
+    df = pd.DataFrame(np.array([C_D, C_L, delta_P])).T
+    df = df[i_t_0:] # Cut off data prior to initial time t_0
+    
+    # Clean DataFrame and save to pickle
+    df.set_index(df.index * dt, inplace = True)
+    df.rename(columns = {0:'C_D', 1:'C_L', 2:'delta_P'}, inplace = True)
+    df.to_pickle(case_str + "data_pickle.pkl")
