@@ -74,7 +74,7 @@ class NavierStokesSolver():
 
         u_ = dfx.fem.Function(V) # Velocity at previous timestep
         u_.name = "u"
-        u_s, u_n, u_n1 = dfx.fem.Function(V), dfx.fem.Function(V), dfx.fem.Function(V) # Velocity functions for operator splitting scheme
+        u_s, u_n = dfx.fem.Function(V), dfx.fem.Function(V) # Velocity functions for operator splitting scheme
 
         p_ = dfx.fem.Function(Q) # Pressure at previous timestep
         p_.name = "p"
@@ -155,10 +155,6 @@ class NavierStokesSolver():
         pc1 = solver1.getPC()
         pc1.setType(PETSc.PC.Type.JACOBI)
 
-        # solver1.setType("preonly")
-        # solver1.getPC().setType("lu")
-        # solver1.getPC().setFactorSolverType("mumps")
-
         # Step 2
         solver2 = PETSc.KSP().create(mesh.comm)
         solver2.setOperators(A2)
@@ -166,9 +162,6 @@ class NavierStokesSolver():
         pc2 = solver2.getPC()
         pc2.setType(PETSc.PC.Type.HYPRE)
         pc2.setHYPREType("boomeramg")
-        # solver2.setType("preonly")
-        # solver2.getPC().setType("lu")
-        # solver2.getPC().setFactorSolverType("mumps")
 
         # Step 3
         solver3 = PETSc.KSP().create(mesh.comm)
@@ -176,65 +169,6 @@ class NavierStokesSolver():
         solver3.setType(PETSc.KSP.Type.CG)
         pc3 = solver3.getPC()
         pc3.setType(PETSc.PC.Type.SOR)
-        # solver3.setType("preonly")
-        # solver3.getPC().setType("lu")
-        # solver3.getPC().setFactorSolverType("mumps")
-
-        # # Variational form - first step
-        # F1  = rho / k * dot(u - u_n, v) * dx
-        # F1 += inner(dot(1.5 * u_n - 0.5 * u_n1, 0.5 * nabla_grad(u + u_n)), v) * dx
-        # F1 += (0.5 * mu * inner(grad(u + u_n), grad(v)) - dot(p_, div(v))) * dx
-        # F1 += dot(f, v) * dx
-
-        # # Bilinear and linear form
-        # a1 = dfx.fem.form(ufl.lhs(F1))
-        # L1 = dfx.fem.form(ufl.rhs(F1))
-
-        # # Create matrix and vector
-        # A1 = dfx.fem.petsc.create_matrix(a1)
-        # b1 = dfx.fem.petsc.create_vector(L1)
-
-        # # Variational form - second step
-        # a2 = dfx.fem.form(dot(grad(p), grad(q)) * dx)
-        # L2 = dfx.fem.form(-rho / k * dot(div(u_s), q) * dx)
-
-        # # Create matrix and vector
-        # A2 = dfx.fem.petsc.assemble_matrix(a2, bcs = bc_pressure)
-        # A2.assemble()
-        # b2 = dfx.fem.petsc.create_vector(L2)
-
-        # # Variational form - third step
-        # a3 = dfx.fem.form( rho * dot(u, v) * dx)
-        # L3 = dfx.fem.form((rho * dot(u_s, v) - k * dot(nabla_grad(phi), v)) * dx)
-
-        # # Create matrix and vector
-        # A3 = dfx.fem.petsc.assemble_matrix(a3)
-        # A3.assemble()
-        # b3 = dfx.fem.petsc.create_vector(L3)
-
-        # ## Configure solvers for the iterative solution steps
-        # # Step 1
-        # solver1 = PETSc.KSP().create(mesh.comm)
-        # solver1.setOperators(A1)
-        # solver1.setType(PETSc.KSP.Type.BCGS)
-        # pc1 = solver1.getPC()
-        # pc1.setType(PETSc.PC.Type.JACOBI)
-
-        # # Step 2
-        # solver2 = PETSc.KSP().create(mesh.comm)
-        # solver2.setOperators(A2)
-        # solver2.setType(PETSc.KSP.Type.MINRES)
-        # pc2 = solver2.getPC()
-        # pc2.setType(PETSc.PC.Type.HYPRE)
-        # pc2.setHYPREType("boomeramg")
-
-        # # Step 3
-        # solver3 = PETSc.KSP().create(mesh.comm)
-        # solver3.setOperators(A3)
-        # solver3.setType(PETSc.KSP.Type.CG)
-        # pc3 = solver3.getPC()
-        # pc3.setType(PETSc.PC.Type.SOR)
-
 
         #####-----DRAG, LIFT and PRESSURE DIFFERENCE COMPUTATION-----#####
         n  = -ufl.FacetNormal(mesh) # Normal vector pointing out of mesh
