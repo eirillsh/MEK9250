@@ -68,31 +68,32 @@ if mesh_comm.rank == model_rank:
     gmsh.model.setPhysicalName(gmsh_dim - 1, CYLINDER, "Cylinder")
 
 # Refine mesh cells close to the cylinder
-res_min = r / 3
-if mesh_comm.rank == model_rank:
-    distance_field = gmsh.model.mesh.field.add("Distance")
-    gmsh.model.mesh.field.setNumbers(distance_field, "EdgesList", cyl)
+refine = False
+if refine:
+    res_min = r / 3
+    if mesh_comm.rank == model_rank:
+        distance_field = gmsh.model.mesh.field.add("Distance")
+        gmsh.model.mesh.field.setNumbers(distance_field, "EdgesList", cyl)
 
-    threshold_field = gmsh.model.mesh.field.add("Threshold")
-    gmsh.model.mesh.field.setNumber(threshold_field, "IField", distance_field)
-    gmsh.model.mesh.field.setNumber(threshold_field, "LcMin", res_min)
-    gmsh.model.mesh.field.setNumber(threshold_field, "LcMax", 0.25 * H)
-    gmsh.model.mesh.field.setNumber(threshold_field, "DistMin", r)
-    gmsh.model.mesh.field.setNumber(threshold_field, "DistMax", 2 * H)
+        threshold_field = gmsh.model.mesh.field.add("Threshold")
+        gmsh.model.mesh.field.setNumber(threshold_field, "IField", distance_field)
+        gmsh.model.mesh.field.setNumber(threshold_field, "LcMin", res_min)
+        gmsh.model.mesh.field.setNumber(threshold_field, "LcMax", 0.25 * H)
+        gmsh.model.mesh.field.setNumber(threshold_field, "DistMin", r)
+        gmsh.model.mesh.field.setNumber(threshold_field, "DistMax", 2 * H)
 
-    min_field = gmsh.model.mesh.field.add("Min")
-    gmsh.model.mesh.field.setNumbers(min_field, "FieldsList", [threshold_field])
-    gmsh.model.mesh.field.setAsBackgroundMesh(min_field)
+        min_field = gmsh.model.mesh.field.add("Min")
+        gmsh.model.mesh.field.setNumbers(min_field, "FieldsList", [threshold_field])
+        gmsh.model.mesh.field.setAsBackgroundMesh(min_field)
 
 # Generate the mesh
+length_factor = 0.0078125
 if mesh_comm.rank == model_rank:
-    gmsh.option.setNumber("Mesh.Algorithm", 8)
-    gmsh.option.setNumber("Mesh.RecombinationAlgorithm", 2)
-    gmsh.option.setNumber("Mesh.RecombineAll", 1)
-    gmsh.option.setNumber("Mesh.SubdivisionAlgorithm", 1)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", length_factor)
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(gmsh_dim)
+
     gmsh.model.mesh.setOrder(2)
     gmsh.model.mesh.optimize("Netgen")
 
-gmsh.write("cylinder_in_box.msh")
+gmsh.write("cylinder_in_box_LF=" + str(length_factor) + ".msh")

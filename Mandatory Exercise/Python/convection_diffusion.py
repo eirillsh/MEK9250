@@ -10,6 +10,9 @@ from ufl      import dx, div, grad, inner
 from mpi4py   import MPI
 from petsc4py import PETSc
 
+
+SUPG = True # If True, use Streamline Upwinding Petrov-Galerkin method
+
 # Marker values
 LEFT   = 1
 RIGHT  = 2
@@ -147,7 +150,6 @@ L2_error_norms, H1_error_norms, hs = [], [], []
 all_L2_error_norms, all_H1_error_norms = [], []
 fig_idx = 1 # Figure index
 
-SUPG = True # If True, use Streamline Upwinding Petrov-Galerkin method
 
 # Loop over different values of mu
 for mu_value in [1, 0.3, 0.1]:
