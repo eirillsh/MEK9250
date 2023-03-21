@@ -9,15 +9,17 @@ length_factor = 0.0625
 mesh_filename = "cylinder_in_box_LF=" + str(length_factor) + ".msh"
 mesh, _, facet_tags = gmshio.read_from_msh(mesh_filename, MPI.COMM_WORLD, rank = 0, gdim = 2)
 
-# from dolfinx.io import XDMFFile
-# with XDMFFile(MPI.COMM_WORLD, "mesh_file.xdmf", "w") as xdmf:
-#     xdmf.write_mesh(mesh)
-# stop
+# Write mesh to file if WRITE_MESH == True
+WRITE_MESH = False
+if WRITE_MESH:
+    from dolfinx.io import XDMFFile
+    with XDMFFile(MPI.COMM_WORLD, "mesh_file.xdmf", "w") as xdmf:
+        xdmf.write_mesh(mesh)
 
 # Set solver parameters
 initial_time = 0  # Start-time of simulation [s]
-final_time = 5    # End-time of simulation [s]
-timestep = 1/1600 # Timestep size [s]
+final_time = 8    # End-time of simulation [s]
+timestep = 1/100 # Timestep size [s]
 velocity_element_degree = int(sys.argv[1]) # Degree of velocity finite element function space
 if sys.argv[2] == 'e':
     scheme_type = "explicit"

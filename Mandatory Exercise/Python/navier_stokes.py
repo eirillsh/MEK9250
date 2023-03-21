@@ -9,10 +9,12 @@ from petsc4py   import PETSc
 
 INLET, OUTLET, WALL, CYLINDER = 2, 3, 4, 5 # Facet marker values
 H = 0.41  # Height of domain [m]
-U_m = 1.5 # Mean velocity [m]
+U_m = 0.3 # Mean velocity [m]
+U_bar = U_m * 2 / 3
 gmsh_dim  = 2
 facet_dim = gmsh_dim - 1
-explicit = True
+tol = 1e-6 # Tolerance for checking if steady state is achieved
+write_file = False # Write results to VTX file if True
 
 class InletVelocity():
     """ Class that defines the function expression for the inlet velocity boundary condition.
@@ -51,6 +53,8 @@ class NavierStokesSolver():
         dt = self.dt # Timestep size
         num_timesteps = int(T/dt) # Number of timesteps
         t_0 = None
+        i_ss = None
+        steady_state_reached = False
 
         k   = dfx.fem.Constant(mesh, PETSc.ScalarType(dt))   # Dolfinx constant object for the timestep
         mu  = dfx.fem.Constant(mesh, PETSc.ScalarType(1e-3)) # Dynamic viscosity of fluid
@@ -174,8 +178,8 @@ class NavierStokesSolver():
         n  = -ufl.FacetNormal(mesh) # Normal vector pointing out of mesh
         dS = ufl.Measure("ds", domain = mesh, subdomain_data = facet_tags, subdomain_id = CYLINDER) # Cylinder surface integral measure
         u_t = inner(ufl.as_vector((n[1], -n[0])), u_) # Tangential velocity
-        drag = dfx.fem.form( 2 / (0.1) * (mu / rho * inner(grad(u_t), n) * n[1] - p_ * n[0]) * dS)
-        lift = dfx.fem.form(-2 / (0.1) * (mu / rho * inner(grad(u_t), n) * n[0] + p_ * n[1]) * dS)
+        drag = dfx.fem.form( 2 / (0.1 * U_bar ** 2) * (mu / rho * inner(grad(u_t), n) * n[1] - p_ * n[0]) * dS)
+        lift = dfx.fem.form(-2 / (0.1 * U_bar ** 2) * (mu / rho * inner(grad(u_t), n) * n[0] + p_ * n[1]) * dS)
 
         if mesh.comm.rank == 0:
             # Pre-allocate arrays for drag and lift coefficients
@@ -198,23 +202,16 @@ class NavierStokesSolver():
 
 
         # Prepare output files
-        # u_filename = case_str + "velocity.bp"
-        # p_filename = case_str + "pressure.bp"
-        # vtx_u = dfx.io.VTXWriter(mesh.comm, u_filename, [u_])
-        # vtx_p = dfx.io.VTXWriter(mesh.comm, p_filename, [p_])
-
-        # u_filename = case_str + "velocity.xdmf"
-        # p_filename = case_str + "pressure.xdmf"
-        # xdmf_u = dfx.io.XDMFFile(mesh.comm, u_filename, "w")
-        # xdmf_p = dfx.io.XDMFFile(mesh.comm, p_filename, "w")
+        u_filename = case_str + "velocity.bp"
+        p_filename = case_str + "pressure.bp" 
+        if write_file:
+            vtx_u = dfx.io.VTXWriter(mesh.comm, u_filename, [u_])
+            vtx_p = dfx.io.VTXWriter(mesh.comm, p_filename, [p_])
 
         # Write initial condition to files
-        # vtx_u.write(t)
-        # vtx_p.write(t)
-        # # xdmf_u.write_mesh(mesh)
-        # xdmf_p.write_mesh(mesh)
-        # xdmf_u.write_function(u_, t)
-        # xdmf_p.write_function(p_, t)
+        if write_file:
+            vtx_u.write(t)
+            vtx_p.write(t)
 
         #####--------SOLUTION TIMELOOP--------#####
         if mesh.comm.rank == 0:
@@ -222,7 +219,7 @@ class NavierStokesSolver():
             print(f"Timestep size dt = {dt}")
             hmin = dfx.cpp.mesh.h(mesh, 2,
                     np.arange(mesh.topology.index_map(2).size_local + mesh.topology.index_map(2).num_ghosts, dtype = np.int32)).min()
-            print(f"Largest edge length in mesh: {hmin}")
+            print(f"Smallest edge length in mesh: {hmin}")
 
         for i in range(num_timesteps):
 
@@ -271,11 +268,9 @@ class NavierStokesSolver():
             u_.x.scatter_forward() # Collect solution from dofs computed in parallel
 
             # Write solutions to files
-            # vtx_u.write(t)
-            # vtx_p.write(t)
-
-            # xdmf_u.write_function(u_, t)
-            # xdmf_p.write_function(p_, t)
+            if write_file:
+                vtx_u.write(t)
+                vtx_p.write(t)
 
             # Update variable previous timestep variables with solution from this timestep
             with u_.vector.localForm() as loc_, u_n.vector.localForm() as loc_n:#, u_n1.vector.localForm() as loc_n1:
@@ -302,11 +297,17 @@ class NavierStokesSolver():
                 C_D[i] = sum(drag_coeff)
                 C_L[i] = sum(lift_coeff)
 
-                if i > 50 and not C_L_max_found:
-                    if C_L[i] < C_L[i-1]:
-                        C_L_max_found = True
-                        t_0 = t - dt
-                        i_t_0 = i-1
+                if i > 20 and not steady_state_reached and (np.abs(C_D[i] - C_D[i-1])/C_D[i] < tol):
+                    print(C_D[i])
+                    print(C_D[i-1])
+                    print(f"Steady state reached at t = {t}")
+                    steady_state_reached = True
+                    i_ss = i
+
+                    if np.abs(C_D[i]) > 1e5:
+                        print("Stopping simulation because C_D approaches inf.")
+                        break
+                    
 
                 # Choose the pressure that is found first from the different processors
                 for pressure in p_front:
@@ -318,30 +319,31 @@ class NavierStokesSolver():
                         delta_P[i] -= pressure[0]
                         break
             
-        # # Close output files
-        # vtx_u.close()
-        # vtx_p.close()
-
-        # xdmf_u.close()
-        # xdmf_p.close()
+        # Close output files
+        if write_file:
+            vtx_u.close()
+            vtx_p.close()
 
 
         # Print physical quantities
         if mesh.comm.rank == 0:
-            if t_0 is None:
-                t_0 = 0
-                i_t_0 = 0
-            print(f"t_0 = {t_0} at timestep i = {i_t_0}")
-            print(f"Maximum drag coefficient: {np.max(C_D[i_t_0:])}")
-            print(f"Maximum lift coefficient: {np.max(C_L[i_t_0:])}")
-            print(f"Maximum Pressure difference: {np.max(delta_P[i_t_0:])}")
+            i_t_0 = 0
+            if i_ss is None:
+                i_ss = 0
+            print(f"Maximum drag coefficient: {np.max(C_D[i_ss:])}")
+            print(f"Maximum lift coefficient: {np.max(C_L[i_ss:])}")
+            print(f"Maximum Pressure difference: {np.max(delta_P[i_ss:])}")
             print(f"Infinity norm velocity: {np.max(u_.vector.norm(3))}")
             num_velocity_dofs = V.dofmap.index_map_bs * V.dofmap.index_map.size_global
             num_pressure_dofs = Q.dofmap.index_map_bs * V.dofmap.index_map.size_global
+            print(f"Drag coefficient at t = {T}: {C_D[-1]}")
+            print(f"Lift coefficient at t = {T}: {C_L[-1]}")
             print(f"Pressure difference at t = {T}: {delta_P[-1]}")
 
             print(f"# of velocity DOFS: {num_velocity_dofs}")
             print(f"# of pressure DOFS: {num_pressure_dofs}")
+
+            print("#####----------------------#####\n")
 
         # Store the data in a pandas.DataFrame
         if mesh.comm.rank == 0:
@@ -352,3 +354,11 @@ class NavierStokesSolver():
             df.set_index(df.index * dt, inplace = True)
             df.rename(columns = {0:'C_D', 1:'C_L', 2:'delta_P'}, inplace = True)
             df.to_pickle(case_str + "data_pickle.pkl")
+
+            df2 = pd.DataFrame(np.array([C_D, C_L, delta_P])).T
+            df2 = df2[i_ss:] # Cut off data prior to initial time t_0
+
+            # Clean DataFrame and save to pickle
+            df2.set_index(df2.index * dt, inplace = True)
+            df2.rename(columns = {0:'C_D', 1:'C_L', 2:'delta_P'}, inplace = True)
+            df2.to_pickle(case_str + "steady_state_data_pickle.pkl")

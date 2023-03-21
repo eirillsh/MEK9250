@@ -6,12 +6,12 @@ import pyvista as pv
 import dolfinx as dfx
 import matplotlib.pyplot as plt
 
-from ufl      import dx, div, grad, inner
+from ufl      import dx, grad, inner
 from mpi4py   import MPI
 from petsc4py import PETSc
 
 
-SUPG = True # If True, use Streamline Upwinding Petrov-Galerkin method
+SUPG = False # If True, use Streamline Upwinding Petrov-Galerkin method
 
 # Marker values
 LEFT   = 1
@@ -187,7 +187,6 @@ for mu_value in [1, 0.3, 0.1]:
             # Bilinear form
             a = dfx.fem.form((mu * inner(grad(u), grad(v)) + inner(w, grad(u)) * v 
                            + supg_parameter * h * inner(w, grad(u)) * inner(w, grad(v))) * dx)
-                           #- beta * h * mu * div(grad(u)) * inner(w, grad(v))) * dx)
 
             # Linear form
             L = dfx.fem.form((inner(f, v) + supg_parameter * h *  inner(f * w, grad(v))) * dx)
@@ -264,15 +263,15 @@ for mu_value in [1, 0.3, 0.1]:
     all_H1_error_norms.append(H1_error_norms)
     print("--------------------------")
     # Plot errors
-    plt.figure(fig_idx)
-    plt.plot(np.log(hs), np.log(L2_error_norms))
-    plt.plot(np.log(hs), intercept_beta + beta * np.log(hs), '^')
+    plt.figure(fig_idx, figsize = (16, 12))
+    plt.loglog(hs, L2_error_norms)
+    plt.loglog(hs, np.exp(intercept_beta) * np.exp(beta * np.log(hs)), '^')
     plt.title(rf"L2 Error Norm Convergence for $\mu$ = {mu_value}")
     plt.xlabel(r"$h$")
 
-    plt.figure(fig_idx + 1)
-    plt.plot(np.log(hs), np.log(H1_error_norms))
-    plt.plot(np.log(hs), intercept_alpha + alpha * np.log(hs), '^')
+    plt.figure(fig_idx + 1, figsize = (16, 12))
+    plt.loglog(hs, H1_error_norms)
+    plt.loglog(hs, np.exp(intercept_alpha) * np.exp(alpha * np.log(hs)), '^')
     plt.title(rf"H1 Error Norm Convergence for $\mu$ = {mu_value}")
     plt.xlabel(r"$h$")
     fig_idx += 2
@@ -285,29 +284,61 @@ for mu_value in [1, 0.3, 0.1]:
 
 
 # #####---------VISUALIZATION---------#####
+VISUALIZE = False
+
+if VISUALIZE:
+    # Prepare data grid
+    cells, topology, x = dfx.plot.create_vtk_mesh(V)
+    grid = pv.UnstructuredGrid(cells, topology, x)
+    grid.point_data["u"] = u_h.x.array.real
+    grid.set_active_scalars("u")
 
 
-# # Prepare data grid
-# cells, topology, x = dfx.plot.create_vtk_mesh(V)
-# grid = pv.UnstructuredGrid(cells, topology, x)
-# grid.point_data["u"] = u_h.x.array.real
-# grid.set_active_scalars("u")
+    # Create plot window and add data, plot 2D solution
+    pl = pv.Plotter()
+    pl.add_mesh(grid, show_edges = True)
+    pl.view_xy()
+    pl.show()
 
-# # Create plot window and add data
-# pl = pv.Plotter()
-# pl.add_mesh(grid, show_edges = True)
-# pl.view_xy()
-# pl.show()
 
-# # Plot errors
-# plt.figure()
-# plt.loglog(L2_error_norms, hs)
-# plt.title("L2 Error Norm Convergence")
-# plt.xlabel(r"$h$")
+    # Plot 1D solution and compare numerical and analytical solutions
+    a = [0, 0, 0]; b = [1, 0, 0]
+    sampled = pv.DataSetFilters.sample_over_line(grid, a, b)
+    _, scalars = grid.active_scalars_info
+    values = sampled.get_array(scalars)
+    x_values = sampled['Distance']
 
-# plt.figure()
-# plt.loglog(H1_error_norms, hs)
-# plt.title("H1 Error Norm Convergence")
-# plt.xlabel(r"$h$")
+    plt.figure(fig_idx, figsize = (12, 8))
+    plt.plot(x_values, values, 'b', label = 'Numerical Solution')
+    u_analytical = lambda x: (np.exp(x / 0.1) - 1) / (np.exp(1/0.1) - 1)
+    x = np.linspace(0, 1, 64)
+    plt.plot(x, u_analytical(x), 'r^', label = 'Analytical Solution')
+    plt.xlabel(r"$x$", fontsize = 20)
+    plt.legend(fontsize = 18)
+    plt.xticks(fontsize = 16)
+    plt.yticks(fontsize = 16)
+    plt.show()
 
-# plt.show()
+    # Convergence plots
+    hs = 1/np.array([8, 16, 32, 64])
+    plt.figure(fig_idx + 1, figsize = (12, 8))
+    plt.loglog(hs, all_L2_error_norms[0], 'r-^', label = f"mu = {1.0}")
+    plt.loglog(hs, all_L2_error_norms[1], 'g-^', label = f"mu = {0.3}")
+    plt.loglog(hs, all_L2_error_norms[2], 'b-^', label = f"mu = {0.1}")
+    plt.title(r"$L^2$ Error Norm Convergence", fontsize = 20)
+    plt.xticks(fontsize = 16)
+    plt.xlabel(r"$h$", fontsize = 16)
+    plt.yticks(fontsize = 16)
+    plt.legend(fontsize = 18)
+    plt.show()
+
+    plt.figure(fig_idx + 2, figsize = (12, 8))
+    plt.loglog(hs, all_H1_error_norms[0], 'r-^', label = f"mu = {1.0}")
+    plt.loglog(hs, all_H1_error_norms[1], 'g-^', label = f"mu = {0.3}")
+    plt.loglog(hs, all_H1_error_norms[2], 'b-^', label = f"mu = {0.1}")
+    plt.title(r"$H^1$ Error Norm Convergence", fontsize = 20)
+    plt.xticks(fontsize = 16)
+    plt.xlabel(r"$h$", fontsize = 16)
+    plt.yticks(fontsize = 16)
+    plt.legend(fontsize = 18)
+    plt.show()
