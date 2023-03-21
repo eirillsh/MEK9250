@@ -41,7 +41,7 @@ int = 2 -> quadratic velocity elements, linear pressure elements (Taylor-Hood pa
 char = 'e' -> use explicit scheme with ICPS
 char = 'i' -> use semi-implicit scheme
 
-The coarseness of the mesh is chosen by specifying degree of refinement, valid options are the integers 1, 2, 3, 4, 5.
+The coarseness of the mesh is chosen by specifying the length_factor variable in 'main.py'. A lower value means that the mesh is finer. The value chosen has to correspond to one of the values in the .msh files in the directory.
 
 The initial time, final time and timestep size can be set in the 'main.py' file.
 
