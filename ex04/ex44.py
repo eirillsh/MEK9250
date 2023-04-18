@@ -20,8 +20,6 @@ def run_problem(N, V_element, Q_element):
     tdim = domain.topology.dim
     fdim = tdim - 1
 
-    # V_cg2 = ufl.VectorElement("CG", domain.ufl_cell(), 2)
-    # Q_cg1 = ufl.FiniteElement("CG", domain.ufl_cell(), 1)
     V = fem.FunctionSpace(domain, V_element)
     Q = fem.FunctionSpace(domain, Q_element)
 
@@ -88,7 +86,7 @@ def run_problem(N, V_element, Q_element):
     return uh, ph, domain
 
 N = 60
-element = "Mini"
+element = "P2-P1"
 V_el, Q_el = get_elements(element)
 
 uh, ph, domain = run_problem(N, V_el, Q_el)
@@ -119,21 +117,40 @@ xx = domain.geometry.x
 pp = php.vector.array
 uh1 = uhp.vector.array[::2]
 
+fig, axs = plt.subplots(1, 2, subplot_kw={'projection':'3d'})
 
-ax = plt.figure().add_subplot(projection='3d')
+# ax = plt.figure().add_subplot(projection='3d')
+ax = axs[0]
 
 ax.plot_trisurf(xx[:,0], xx[:,1], pp, cmap=plt.cm.viridis)
 ax.set_xlabel("$x$")
 ax.set_ylabel("$y$")
 ax.set_title("$p$")
 
-ax = plt.figure().add_subplot(projection='3d')
+# ax = plt.figure().add_subplot(projection='3d')
+ax = axs[1]
 
 ax.plot_trisurf(xx[:,0], xx[:,1], uh1, cmap=plt.cm.viridis)
 ax.set_xlabel("$x$")
 ax.set_ylabel("$y$")
 ax.set_title("$u_1$")
 
+fig, axs = plt.subplots(1, 2, subplot_kw={'projection':'3d'})
+
+# ax = plt.figure().add_subplot(projection='3d')
+ax = axs[0]
+
+ax.plot_trisurf(xx[:,0], xx[:,1], uh1 - poiseuille.u(xx.T)[0,:], cmap=plt.cm.viridis)
+ax.set_xlabel("$x$")
+ax.set_ylabel("$y$")
+ax.set_title(r"$u_1 - u_{\mathrm{ex},1}$")
+
+ax = axs[1]
+
+ax.plot_trisurf(xx[:,0], xx[:,1], pp - -1*poiseuille.p(xx.T), cmap=plt.cm.viridis)
+ax.set_xlabel("$x$")
+ax.set_ylabel("$y$")
+ax.set_title(r"$p - p_{\mathrm{ex}}$")
 
 plt.show()
 

@@ -39,6 +39,8 @@ def get_elements(element:str):
         return P_el_builder(2, 0)
     elif element == "P2-P2":
         return P_el_builder(2, 2)
+    elif element == "P1-P1":
+        return P_el_builder(1, 1)
     elif element == "CR":
         return CR_builder()
     elif element == "Mini":
