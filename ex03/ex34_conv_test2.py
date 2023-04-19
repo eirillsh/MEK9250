@@ -86,7 +86,8 @@ def run_problem(N, mu_val, SUPG=True):
 
     domain = mesh.create_unit_interval(MPI.COMM_SELF, N)
 
-    V = fem.FunctionSpace(domain, ("CG", 1))
+    order = 1
+    V = fem.FunctionSpace(domain, ("CG", order))
 
 
     tdim = domain.topology.dim
@@ -143,10 +144,18 @@ def run_problem(N, mu_val, SUPG=True):
     uh = problem.solve()
 
     h = 1.0 / N
+    beta = 0.5
 
-    gu = ufl.grad(uh - u_ex)
+    Vp = fem.FunctionSpace(domain, ("CG", order+3))
+    uhp = fem.Function(Vp)
+    uhp.interpolate(uh)
+    uep = fem.Function(Vp)
+    uep.interpolate(u_ex_f)
+
+    gu = ufl.grad(uhp - uep)
     w_d_gu = ufl.dot(w, ufl.nabla_grad(gu))
-    sd_sqr_form = fem.form( h * ufl.dot(w_d_gu,w_d_gu) * ufl.dx + mu * ufl.dot(gu,gu) * ufl.dx )
+    # sd_sqr_form = fem.form( h * ufl.dot(w_d_gu,w_d_gu) * ufl.dx + mu * ufl.dot(gu,gu) * ufl.dx )
+    sd_sqr_form = fem.form( beta*h * ufl.dot(w_d_gu,w_d_gu) * ufl.dx + mu * ufl.dot(gu,gu) * ufl.dx )
     sd_local = fem.assemble_scalar(sd_sqr_form)
     sd = np.sqrt(uh.function_space.mesh.comm.allreduce(sd_local, op=MPI.SUM))
 
@@ -183,7 +192,7 @@ plt.plot(xx_long, uu_ex_long, 'k:', label=r"$u_\mathrm{ex}$")
 
 plt.legend()
 
-
+from h2norm import sdnorm, h1norm, H2norm
 
 mus = [1e-2, 1e-3, 1e-4]
 Ns = [10 * 2**k for k in range(1, 15)]
@@ -192,9 +201,11 @@ data = np.zeros((len(mus), len(Ns), 2))
 for i, mu in enumerate(mus):
     for j, N in enumerate(Ns):
         uh, h10, sd = run_problem(N, mu, SUPG=True)
-        data[i,j,:] = [h10+0.0, sd+0.0]
+        # data[i,j,:] = [h10+0.0, sd+0.0]
+        data[i,j,:] = [h10 / H2norm(mu), sd / H2norm(mu)]
 
 hs = 1 / (np.array(Ns))
+
 fig, axs = plt.subplots(1,2)
 for i, mu in enumerate(mus):
     axs[0].loglog(hs, data[i,:,0], label=f"${mu=}, H^1_0$")
@@ -204,11 +215,31 @@ axs[0].legend()
 axs[1].legend()
 fig.suptitle("w/ SUPG")
 
+k = 4
+print("w/ SUPG")
+print("h1: ", end="")
+for i, mu in enumerate(mus):
+    poly = np.polynomial.polynomial.Polynomial.fit(
+            np.log(hs[-k:]), np.log(data[i,-k:,0]), deg=1
+        )
+    print(f"{poly.coef[1]:.1f}", end="    ")
+print()
+print("sd: ", end="")
+for i, mu in enumerate(mus):
+    poly = np.polynomial.polynomial.Polynomial.fit(
+            np.log(hs[-k:]), np.log(data[i,-k:,1]), deg=1
+        )
+    print(f"{poly.coef[1]:.1f}", end="    ")
+print()
+
+
 data = np.zeros((len(mus), len(Ns), 2))
 for i, mu in enumerate(mus):
     for j, N in enumerate(Ns):
         uh, h10, sd = run_problem(N, mu, SUPG=False)
-        data[i,j,:] = [h10+0.0, sd+0.0]
+        # data[i,j,:] = [h10+0.0, sd+0.0]
+        # data[i,j,:] = [h10 / h1norm(mu), sd / sdnorm(mu, 1/N)]
+        data[i,j,:] = [h10 / H2norm(mu), sd / H2norm(mu)]
 
 hs = 1 / (np.array(Ns))
 fig, axs = plt.subplots(1,2)
@@ -219,6 +250,23 @@ for i, mu in enumerate(mus):
 axs[0].legend()
 axs[1].legend()
 fig.suptitle("w/o SUPG")
+
+print("w/o SUPG")
+print("h1: ", end="")
+for i, mu in enumerate(mus):
+    poly = np.polynomial.polynomial.Polynomial.fit(
+            np.log(hs[-k:]), np.log(data[i,-k:,0]), deg=1
+        )
+    print(f"{poly.coef[1]:.1f}", end="    ")
+print()
+print("sd: ", end="")
+for i, mu in enumerate(mus):
+    poly = np.polynomial.polynomial.Polynomial.fit(
+            np.log(hs[-k:]), np.log(data[i,-k:,1]), deg=1
+        )
+    print(f"{poly.coef[1]:.1f}", end="    ")
+print()
+
 
 
 plt.show()

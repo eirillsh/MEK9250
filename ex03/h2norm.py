@@ -18,6 +18,21 @@ def H2norm(mu):
     I, err = sp.integrate.quad(lambda x: u(x, mu)**2 + ux(x, mu)**2 + uxx(x, mu)**2, 0, 1, epsabs=5e-13, epsrel=5e-13)
     return np.sqrt(I)
 
+def sdnorm(mu, h):
+
+    I, err = sp.integrate.quad(lambda x: h*ux(x, mu)**2 + mu*ux(x, mu)**2, 0, 1, epsabs=5e-13, epsrel=5e-13)
+    return np.sqrt(I)
+# def sdnorm(mu, beta):
+
+#     I, err = sp.integrate.quad(lambda x: beta*ux(x, mu)**2 + mu*ux(x, mu)**2, 0, 1, epsabs=5e-13, epsrel=5e-13)
+#     return np.sqrt(I)
+
+def h1norm(mu):
+
+    I, err = sp.integrate.quad(lambda x: ux(x, mu)**2, 0, 1, epsabs=5e-13, epsrel=5e-13)
+    return np.sqrt(I)
+
+
 def main():
 
     I, err = sp.integrate.quad(lambda x: uxx(x, 0.001)**2, 0, 1, epsabs=5e-13, epsrel=5e-13)

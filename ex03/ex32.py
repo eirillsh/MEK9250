@@ -23,7 +23,7 @@ def compute_H1_norm(uh):
     return H1
 
 def compute_H1_error(uh, uex):
-    
+    #TODO: Power raise
     H1_sqr_form = fem.form( ufl.dot(uh-uex, uh-uex) * ufl.dx + \
                             ufl.dot(ufl.grad(uh-uex), ufl.grad(uh-uex)) * ufl.dx )
     H1_local = fem.assemble_scalar(H1_sqr_form)
@@ -106,11 +106,13 @@ def run_problem(N, mu_val):
     return uu, H1, L2
 
 mu = 0.005
-N = 41
+N = 40
+# mu = 1e-5
+# N = 20000
 uu, H1, L2 = run_problem(N, mu)
 xx = np.linspace(0, 1, uu.shape[0])
 
-xx_long = np.linspace(0, 1, 1001)
+xx_long = np.linspace(0, 1, max(1001, xx.shape[0]))
 uu_ex_long = u_func(xx_long, mu)
 
 plt.figure()
@@ -120,7 +122,7 @@ plt.plot(xx_long, uu_ex_long, 'k:', label="$u_e$")
 
 plt.legend()
 
-mus = [1e-3, 1e-4, 1e-5, 1e-6]
+mus = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
 Ns = [21, 41, 81, 161, 321, 641, 1281, 2561, 5121, 10480, 20562]
 Ns = [10 * 2**k for k in range(1, 15)]
 
