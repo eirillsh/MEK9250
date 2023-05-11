@@ -22,7 +22,7 @@ domain = mesh.create_unit_square(MPI.COMM_WORLD, N, N,
 V = fem.VectorFunctionSpace(domain, ("CG", p))
 
 mu = fem.Constant(domain, ScalarType(1.0))
-lambda_ = fem.Constant(domain, ScalarType(1.0e4))
+lambda_ = fem.Constant(domain, ScalarType(1.0e6))
 
 x = ufl.SpatialCoordinate(domain)
 
