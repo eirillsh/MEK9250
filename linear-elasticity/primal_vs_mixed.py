@@ -76,17 +76,23 @@ def primal_solve(V: fem.FunctionSpace):
 
     return uh
 
-def mixed_solve(V: fem.FunctionSpace, Q: fem.FunctionSpace):
+# def mixed_solve(V: fem.FunctionSpace, Q: fem.FunctionSpace):
+def mixed_solve(W: fem.FunctionSpace):
 
-    domain = V.mesh
+    # domain = V.mesh
+    # tdim = domain.topology.dim
+    # fdim = tdim - 1
+
+    # V_el = V.ufl_element()
+    # Q_el = Q.ufl_element()
+
+    # mel = ufl.MixedElement([V_el, Q_el])
+    # W = fem.FunctionSpace(domain, mel)
+
+    domain = W.mesh
     tdim = domain.topology.dim
     fdim = tdim - 1
-
-    V_el = V.ufl_element()
-    Q_el = Q.ufl_element()
-
-    mel = ufl.MixedElement([V_el, Q_el])
-    W = fem.FunctionSpace(domain, mel)
+    V = W.sub(0).collapse()[0]
 
     def u_boundary(x):
         return np.isclose(x[0], 0.0) | np.isclose(x[0], 1.0) | np.isclose(x[1], 0.0) | np.isclose(x[1], 1.0)
@@ -152,19 +158,50 @@ def mixed_solve(V: fem.FunctionSpace, Q: fem.FunctionSpace):
 mu.value = 1.0
 lambda_.value = 1e6
 
+"""
+TODO: Check other elements?
+"""
+
+V = fem.VectorFunctionSpace(domain, ("CG", 1))
+uh_primal_p1 = primal_solve(V)
+eh_primal_p1 = compute_error(uh_primal_p1)
 
 V = fem.VectorFunctionSpace(domain, ("CG", 2))
-# V = fem.VectorFunctionSpace(domain, ("BDM", 2))
-# W = fem.FunctionSpace(domain, "BDM", 3)
-# print(W)
-uh_primal = primal_solve(V)
-eh_primal = compute_error(uh_primal)
+uh_primal_p2 = primal_solve(V)
+eh_primal_p2 = compute_error(uh_primal_p2)
 
-V = fem.VectorFunctionSpace(domain, ("CG", 2))
-Q = fem.FunctionSpace(domain, ("CG", 1))
-uh_mixed, _ = mixed_solve(V, Q)
-eh_mixed = compute_error(uh_mixed)
+V_el = ufl.VectorElement("CG", domain.ufl_cell(), 2)
+Q_el = ufl.FiniteElement("CG", domain.ufl_cell(), 1)
+W_el = ufl.MixedElement([V_el, Q_el])
+W = fem.FunctionSpace(domain, W_el)
+uh_mixed_P2_P1, _ = mixed_solve(W)
+eh_mixed_P2_P1 = compute_error(uh_mixed_P2_P1)
 
-print(eh_primal)
-print(eh_mixed)
+V_el = ufl.VectorElement("Crouzeix-Raviart", domain.ufl_cell(), 1)
+Q_el = ufl.FiniteElement("DG", domain.ufl_cell(), 0)
+W_el = ufl.MixedElement([V_el, Q_el])
+W = fem.FunctionSpace(domain, W_el)
+uh_mixed_CR, _ = mixed_solve(W)
+eh_mixed_CR = compute_error(uh_mixed_CR)
+
+V_el = ufl.VectorElement(
+    ufl.EnrichedElement(
+        ufl.FiniteElement("CG", domain.ufl_cell(), 1),
+        ufl.FiniteElement("Bubble", domain.ufl_cell(), 3)
+    )
+)
+Q_el = ufl.FiniteElement("CG", domain.ufl_cell(), 1)
+W_el = ufl.MixedElement([V_el, Q_el])
+W = fem.FunctionSpace(domain, W_el)
+uh_mixed_mini, _ = mixed_solve(W)
+eh_mixed_mini = compute_error(uh_mixed_mini)
+
+print("-"*33)
+print(f"mu = {mu.value}, \t lambda = {lambda_.value:.1e}")
+print("-"*33)
+print(f"Primal P1: \t e_h = {eh_primal_p1:.3e}")
+print(f"Primal P2: \t e_h = {eh_primal_p2:.3e}")
+print(f"Mixed P2-P1: \t e_h = {eh_mixed_P2_P1:.3e}")
+print(f"Mixed CR: \t e_h = {eh_mixed_CR:.3e}")
+print(f"Mixed mini: \t e_h = {eh_mixed_mini:.3e}")
 
