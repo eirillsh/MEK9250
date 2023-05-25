@@ -7,6 +7,7 @@ from petsc4py.PETSc import ScalarType
 
 from dolfinx import mesh, fem, io
 
+from timeit import default_timer as timer
 
 def compute_error(uh: fem.Function):
 
@@ -47,6 +48,8 @@ f = -mu * ufl.as_vector((lapl_u_ex_1, lapl_u_ex_2))
 
 def primal_solve(V: fem.FunctionSpace):
 
+    start = timer()
+
     """ Boundary conditions """
     uD_expr = fem.Expression(u_ex, V.element.interpolation_points())
     uD = fem.Function(V)
@@ -72,22 +75,17 @@ def primal_solve(V: fem.FunctionSpace):
     problem = fem.petsc.LinearProblem(a, l, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 
     uh = problem.solve()
+
+    end = timer()
+
     uh.name = "u_h"
 
-    return uh
+    return uh, end-start
 
-# def mixed_solve(V: fem.FunctionSpace, Q: fem.FunctionSpace):
+
 def mixed_solve(W: fem.FunctionSpace):
 
-    # domain = V.mesh
-    # tdim = domain.topology.dim
-    # fdim = tdim - 1
-
-    # V_el = V.ufl_element()
-    # Q_el = Q.ufl_element()
-
-    # mel = ufl.MixedElement([V_el, Q_el])
-    # W = fem.FunctionSpace(domain, mel)
+    start = timer()
 
     domain = W.mesh
     tdim = domain.topology.dim
@@ -150,12 +148,15 @@ def mixed_solve(W: fem.FunctionSpace):
             raise e
 
     uh, ph = U.sub(0).collapse(), U.sub(1).collapse()
+    
+    end = timer()
+    
     uh.name = "u_h"
     ph.name = "p_h"
 
-    return uh, ph
+    return uh, ph, end-start
 
-mu.value = 1.0
+mu.value = 1.0e0
 lambda_.value = 1e6
 
 """
@@ -163,25 +164,36 @@ TODO: Check other elements?
 """
 
 V = fem.VectorFunctionSpace(domain, ("CG", 1))
-uh_primal_p1 = primal_solve(V)
+uh_primal_p1, T_primal_p1 = primal_solve(V)
 eh_primal_p1 = compute_error(uh_primal_p1)
 
 V = fem.VectorFunctionSpace(domain, ("CG", 2))
-uh_primal_p2 = primal_solve(V)
+uh_primal_p2, T_primal_p2 = primal_solve(V)
 eh_primal_p2 = compute_error(uh_primal_p2)
+
+V = fem.VectorFunctionSpace(domain, ("CG", 3))
+uh_primal_p3, T_primal_p3 = primal_solve(V)
+eh_primal_p3 = compute_error(uh_primal_p3)
 
 V_el = ufl.VectorElement("CG", domain.ufl_cell(), 2)
 Q_el = ufl.FiniteElement("CG", domain.ufl_cell(), 1)
 W_el = ufl.MixedElement([V_el, Q_el])
 W = fem.FunctionSpace(domain, W_el)
-uh_mixed_P2_P1, _ = mixed_solve(W)
+uh_mixed_P2_P1, _, T_mixed_P2_P1= mixed_solve(W)
 eh_mixed_P2_P1 = compute_error(uh_mixed_P2_P1)
+
+V_el = ufl.VectorElement("CG", domain.ufl_cell(), 3)
+Q_el = ufl.FiniteElement("CG", domain.ufl_cell(), 2)
+W_el = ufl.MixedElement([V_el, Q_el])
+W = fem.FunctionSpace(domain, W_el)
+uh_mixed_P3_P2, _, T_mixed_P3_P2 = mixed_solve(W)
+eh_mixed_P3_P2 = compute_error(uh_mixed_P3_P2)
 
 V_el = ufl.VectorElement("Crouzeix-Raviart", domain.ufl_cell(), 1)
 Q_el = ufl.FiniteElement("DG", domain.ufl_cell(), 0)
 W_el = ufl.MixedElement([V_el, Q_el])
 W = fem.FunctionSpace(domain, W_el)
-uh_mixed_CR, _ = mixed_solve(W)
+uh_mixed_CR, _, T_mixed_CR = mixed_solve(W)
 eh_mixed_CR = compute_error(uh_mixed_CR)
 
 V_el = ufl.VectorElement(
@@ -193,15 +205,24 @@ V_el = ufl.VectorElement(
 Q_el = ufl.FiniteElement("CG", domain.ufl_cell(), 1)
 W_el = ufl.MixedElement([V_el, Q_el])
 W = fem.FunctionSpace(domain, W_el)
-uh_mixed_mini, _ = mixed_solve(W)
+uh_mixed_mini, _, T_mixed_mini = mixed_solve(W)
 eh_mixed_mini = compute_error(uh_mixed_mini)
 
-print("-"*33)
-print(f"mu = {mu.value}, \t lambda = {lambda_.value:.1e}")
-print("-"*33)
-print(f"Primal P1: \t e_h = {eh_primal_p1:.3e}")
-print(f"Primal P2: \t e_h = {eh_primal_p2:.3e}")
-print(f"Mixed P2-P1: \t e_h = {eh_mixed_P2_P1:.3e}")
-print(f"Mixed CR: \t e_h = {eh_mixed_CR:.3e}")
-print(f"Mixed mini: \t e_h = {eh_mixed_mini:.3e}")
+V_el = ufl.VectorElement("CG", domain.ufl_cell(), 1)
+Q_el = ufl.FiniteElement("CG", domain.ufl_cell(), 1)
+W_el = ufl.MixedElement([V_el, Q_el])
+W = fem.FunctionSpace(domain, W_el)
+uh_mixed_P1_P1, _, T_mixed_P1_P1 = mixed_solve(W)
+eh_mixed_P1_P1 = compute_error(uh_mixed_P1_P1)
 
+print("-"*53)
+print(f"mu = {mu.value}, \t lambda = {lambda_.value:.1e}, \t N = {N}")
+print("-"*53)
+print(f"Primal P1: \t e_h = {eh_primal_p1:.3e} \t T = {T_primal_p1*1e3:>6.1f}ms")
+print(f"Primal P2: \t e_h = {eh_primal_p2:.3e} \t T = {T_primal_p2*1e3:>6.1f}ms")
+print(f"Primal P3: \t e_h = {eh_primal_p3:.3e} \t T = {T_primal_p3*1e3:>6.1f}ms")
+print(f"Mixed P2-P1: \t e_h = {eh_mixed_P2_P1:.3e} \t T = {T_mixed_P2_P1*1e3:>6.1f}ms")
+print(f"Mixed P3-P2: \t e_h = {eh_mixed_P3_P2:.3e} \t T = {T_mixed_P3_P2*1e3:>6.1f}ms")
+print(f"Mixed CR: \t e_h = {eh_mixed_CR:.3e} \t T = {T_mixed_CR*1e3:>6.1f}ms")
+print(f"Mixed mini: \t e_h = {eh_mixed_mini:.3e} \t T = {T_mixed_mini*1e3:>6.1f}ms")
+print(f"Mixed P1-P1: \t e_h = {eh_mixed_P1_P1:.3e} \t T = {T_mixed_P1_P1*1e3:>6.1f}ms")
